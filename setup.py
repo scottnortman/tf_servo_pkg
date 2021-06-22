@@ -20,7 +20,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'tf_servo = tf_servo_pkg.tf_servo:main'
+            'tf_servo = tf_servo_pkg.tf_servo:main',
+            'tf_spacenav = tf_servo_pkg.tf_servo_spacenav:main'
         ],
     },
 )
