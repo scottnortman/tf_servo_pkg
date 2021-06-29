@@ -31,12 +31,12 @@ from geometry_msgs.msg import TwistStamped
 class TF_Servo_SpaceNav( Node ):
 
     def __init__(self, 
-        scale_translation=np.array( [   [0.01, 0.0, 0.0],
-                                        [0.0, 0.0, 0.01],
-                                        [0.0, 0.01, 0.0] ] ),
-        scale_rotation=np.array( [  [0.01, 0.0, 0.0],
-                                    [0.0, 0.0, 0.01],
-                                    [0.0, 0.01, 0.0]] ) ):
+        scale_translation=np.array( [   [0.025, 0.0, 0.0],
+                                        [0.0, 0.0, 0.025],
+                                        [0.0, 0.025, 0.0] ] ),
+        scale_rotation=np.array( [  [0.025, 0.0, 0.0],
+                                    [0.0, 0.0, 0.025],
+                                    [0.0, 0.025, 0.0]] ) ):
 
         super().__init__('tf_servo_spacenav')
 
