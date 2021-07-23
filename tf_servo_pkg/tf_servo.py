@@ -57,6 +57,7 @@ class TF_Servo( Node ):
         if  None == self.tf_reset:
             self.tf_reset = tf_reset
             
+            
 
     def twist_callback( self, twist ):
 
@@ -70,6 +71,8 @@ class TF_Servo( Node ):
             qq = Quaternion( w=self.tf_reset.pose.orientation.w, x=self.tf_reset.pose.orientation.x, \
                 y=self.tf_reset.pose.orientation.y, z=self.tf_reset.pose.orientation.z )
             self.tx_servo[0:3,0:3] = qq.rotation_matrix
+            self.get_logger().info('Reset tf_servo...\n')
+            #self.get_logger().info( str(self.tx_servo) )
             self.tf_reset = None
 
         #[[0,-c,b],[c,0,-a],[-b,a,0]],
