@@ -42,8 +42,10 @@ from geometry_msgs.msg import PoseStamped
 
 class TF_Servo( Node ):
 
-    def __init__(self):
+    def __init__(self, verbose=False):
         super().__init__('tf_servo')
+
+        self.verbose = verbose
 
         self.tx_servo_pub = self.create_publisher( PoseStamped, 'tf_servo', 10 )
         self.twist_sub = self.create_subscription( TwistStamped, 'delta_twist_cmds', self.twist_callback, 10 )
@@ -71,10 +73,11 @@ class TF_Servo( Node ):
             qq = Quaternion( w=self.tf_reset.pose.orientation.w, x=self.tf_reset.pose.orientation.x, \
                 y=self.tf_reset.pose.orientation.y, z=self.tf_reset.pose.orientation.z )
             self.tx_servo[0:3,0:3] = qq.rotation_matrix
-            self.get_logger().info('Reset tf_servo...\n')
-            #self.get_logger().info( str(self.tx_servo) )
             self.tf_reset = None
+            if self.verbose:
+                self.get_logger().info('Reset tf_servo...\n')
 
+        # Given twist vector, convert to skew symmetric matrix
         #[[0,-c,b],[c,0,-a],[-b,a,0]],
         S = np.array( [
             [0, -twist.twist.angular.z, twist.twist.angular.y],
@@ -82,17 +85,18 @@ class TF_Servo( Node ):
             [-twist.twist.angular.y, twist.twist.angular.x, 0] 
         ] )
 
+        # Get a differential rotation matrix; dR/dt = S(w)*R is an approximation
         dR = S @ self.tx_servo[0:3,0:3]
         dx = np.array( [twist.twist.linear.x,twist.twist.linear.y, twist.twist.linear.z] )
 
-        # Use SVD to preserve SE3 properties as dR/dt = S(w)*R is an approximation
+        # Use SVD to preserve SO3 properties
         U,_,VH = LA.svd(dR + self.tx_servo[0:3, 0:3]) # note VH = V.T
         RR = U @ VH
         self.tx_servo[0:3, 0:3] = RR
         self.tx_servo[0:3,3] = dx + self.tx_servo[0:3,3] 
 
         tfps=PoseStamped()
-        tfps.header.frame_id = 'base_link'
+        tfps.header.frame_id = 'world'
         tfps.header.stamp = self.get_clock().now().to_msg()
         tfps.pose.position.x = self.tx_servo[0,3]
         tfps.pose.position.y = self.tx_servo[1,3]
@@ -104,8 +108,6 @@ class TF_Servo( Node ):
         tfps.pose.orientation.z = quat.elements[3]
 
         self.tx_servo_pub.publish( tfps )
-
-
 
 def main(args=None):
     rclpy.init(args=args)
