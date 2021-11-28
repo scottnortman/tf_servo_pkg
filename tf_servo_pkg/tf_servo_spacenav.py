@@ -28,25 +28,65 @@ import spacenav
 
 import numpy as np
 import rclpy
+
+from rcl_interfaces.msg import ParameterType, ParameterDescriptor
+from rclpy.exceptions import ParameterNotDeclaredException, ParameterAlreadyDeclaredException, InvalidParameterException, InvalidParameterValueException
+
 from rclpy.logging import get_logger
 from rclpy.node import Node
 from geometry_msgs.msg import TwistStamped
 
 class TF_Servo_SpaceNav( Node ):
 
-    def __init__(self, 
-        scale_translation=np.array( [   [0.01, 0.0, 0.0],
-                                        [0.0, 0.0, 0.01],
-                                        [0.0, 0.01, 0.0] ] ),
-        scale_rotation=np.array( [  [0.01, 0.0, 0.0],
-                                    [0.0, 0.0, 0.01],
-                                    [0.0, 0.01, 0.0]] ) ):
+    def __init__( self ):
 
         super().__init__('tf_servo_spacenav')
 
+        scale_translation_default = '0.01, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.01, 0.0'
+        scale_rotation_default = '0.01, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.01, 0.0'
 
-        self.scale_translation = scale_translation
-        self.scale_rotation = scale_rotation
+        # Declare gain matricies as parameters to enable launch file update
+        scale_translation_descriptor = ParameterDescriptor( description='3x3 Translation Scale Matrix as a 9 element string, row major format.' )
+        try:
+            self.declare_parameter( 'scale_translation', scale_translation_default, scale_translation_descriptor)
+        except ParameterAlreadyDeclaredException as e:
+            self.get_logger().warn(f'Parameter Exception: [{e}]')
+        except InvalidParameterException as e:
+            self.get_logger().warn(f'Parameter Exception: [{e}]')
+        except InvalidParameterValueException as e:
+            self.get_logger().warn(f'Parameter Exception: [{e}]')
+        
+        scale_rotation_descriptor = ParameterDescriptor( description='3x3 Rotation Scale Matrix as a 9 element string, row major format.')
+        try:
+            self.declare_parameter( 'scale_rotation', scale_rotation_default, scale_rotation_descriptor )
+        except ParameterAlreadyDeclaredException as e:
+            self.get_logger().warn(f'Parameter Exception: [{e}]')
+        except InvalidParameterException as e:
+            self.get_logger().warn(f'Parameter Exception: [{e}]')
+        except InvalidParameterValueException as e:
+            self.get_logger().warn(f'Parameter Exception: [{e}]')
+        
+        # Get parameters
+        try:
+            scale_translation = self.get_parameter( 'scale_translation' ).get_parameter_value().string_value
+        except ParameterNotDeclaredException as e:
+            self.get_logger().warn(f'Parameter Exception: [{e}]')
+            scale_translation = scale_translation_default
+        finally:
+            self.scale_translation = self.parameter_string_to_3x3( scale_translation )
+
+        self.get_logger().info(f'\nscale_translation:\n[{self.scale_translation}]\n')
+
+        try:
+            scale_rotation = self.get_parameter( 'scale_rotation' ).get_parameter_value().string_value
+        except ParameterNotDeclaredException as e:
+            self.get_logger().warn(f'Parameter Exception: [{e}]')
+            scale_rotation = scale_rotation_default
+        finally:
+            self.scale_rotation = self.parameter_string_to_3x3( scale_rotation )
+
+        self.get_logger().info(f'\nscale_rotation:\n[{self.scale_rotation}]\n')
+
 
         #Try to open a connection to device
         try:
@@ -62,6 +102,7 @@ class TF_Servo_SpaceNav( Node ):
                 sys.exit()
 
         self.twist_pub = self.create_publisher( TwistStamped, 'delta_twist_cmds', 10)
+
 
         # create a timer to poll for spacemouse events
         self.timer = self.create_timer( 1.0 / 25.0, self.spacenav_callback )
@@ -103,6 +144,24 @@ class TF_Servo_SpaceNav( Node ):
 
             self.twist_pub.publish(msg_twist)    
 
+    def parameter_string_to_3x3( self, param_string ):
+        '''
+        Converts a comma delimited string into a 3x3 np matrix array
+
+        '''
+        
+        matrix_3x3 = np.zeros([3,3])
+
+        # Break string with ',' delimiter, ignore whitespace
+        ss = param_string.split(',')
+
+        idx=0
+        for r in range(3):
+            for c in range(3):
+                matrix_3x3[r,c] = float(ss[idx])
+                idx += 1
+
+        return matrix_3x3
 
 def main(args=None):
     rclpy.init(args=args)
