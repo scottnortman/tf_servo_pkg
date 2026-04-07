@@ -66,8 +66,15 @@ class TF_Servo_SpaceNav( Node ):
 
         super().__init__('tf_servo_spacenav')
 
-        scale_translation_default = '0.01, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.01, 0.0'
-        scale_rotation_default = '0.01, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.01, 0.0'
+        scale_translation_default = \
+            ' 0.00, 0.01, 0.00, ' \
+            ' 0.00, 0.00, 0.01, ' \
+            '-0.01, 0.00, 0.00'
+        
+        scale_rotation_default = \
+            ' 0.00, 0.01, 0.00, ' \
+            ' 0.00, 0.00, 0.01, ' \
+            '-0.01, 0.00, 0.00'
 
         # Declare gain matricies as parameters to enable launch file update
         scale_translation_descriptor = ParameterDescriptor( description='3x3 Translation Scale Matrix as a 9 element string, row major format.' )
