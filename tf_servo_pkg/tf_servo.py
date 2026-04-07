@@ -10,14 +10,17 @@ This node uses the following topics
 
 1) [published] /tf_servo
 Publishes a time integrated transform; displacements are accumulated via
-'delta_twist_commands', message type PoseStamped
+'delta_twist_commands', message type PoseStamped. To avoid startup jumps,
+this node does not publish until it has first been initialized from /tf_reset.
 
 2) [subscribed] /delta_twist_cmds
 Subscribes to messages of type TwistStamped to affect the transform
 tf_servo
 
 3) [subscribed] /tf_reset
-Subscribes to message of type PoseStamped; if received, overwrites the tf_servo transform
+Subscribes to message of type PoseStamped; if received, overwrites the tf_servo
+transform. The first /tf_reset initializes the starting transform and enables
+publishing on /tf_servo.
 
 Example to publish from the command line to reset the tf_servo value
 
@@ -51,50 +54,23 @@ class TF_Servo( Node ):
         self.twist_sub = self.create_subscription( TwistStamped, 'delta_twist_cmds', self.twist_callback, 10 )
         self.tf_reset_sub = self.create_subscription( PoseStamped, 'tf_reset', self.tf_reset_callback, 10 )
         self.tx_servo = np.identity(4)
+        self.has_initial_reset = False
 
-        self.tf_reset = None
+        self.get_logger().info('Waiting for initial tf_reset before publishing tf_servo poses...')
 
-    def tf_reset_callback( self, tf_reset ):        
-        
-        if  None == self.tf_reset:
-            self.tf_reset = tf_reset
-            
-            
+    def _set_tx_servo_from_pose(self, pose_stamped):
+        self.tx_servo[0,3] = pose_stamped.pose.position.x
+        self.tx_servo[1,3] = pose_stamped.pose.position.y
+        self.tx_servo[2,3] = pose_stamped.pose.position.z
+        qq = Quaternion(
+            w=pose_stamped.pose.orientation.w,
+            x=pose_stamped.pose.orientation.x,
+            y=pose_stamped.pose.orientation.y,
+            z=pose_stamped.pose.orientation.z,
+        )
+        self.tx_servo[0:3,0:3] = qq.rotation_matrix
 
-    def twist_callback( self, twist ):
-
-        if self.tf_reset:
-            # Convert tf into 4x4 transform
-            self.tx_servo[0,3] = self.tf_reset.pose.position.x
-            self.tx_servo[1,3] = self.tf_reset.pose.position.y
-            self.tx_servo[2,3] = self.tf_reset.pose.position.z
-            #conv quaternion into 3x3
-            #http://kieranwynn.github.io/pyquaternion/
-            qq = Quaternion( w=self.tf_reset.pose.orientation.w, x=self.tf_reset.pose.orientation.x, \
-                y=self.tf_reset.pose.orientation.y, z=self.tf_reset.pose.orientation.z )
-            self.tx_servo[0:3,0:3] = qq.rotation_matrix
-            self.tf_reset = None
-            if self.verbose:
-                self.get_logger().info('Reset tf_servo...\n')
-
-        # Given twist vector, convert to skew symmetric matrix
-        #[[0,-c,b],[c,0,-a],[-b,a,0]],
-        S = np.array( [
-            [0, -twist.twist.angular.z, twist.twist.angular.y],
-            [twist.twist.angular.z, 0, -twist.twist.angular.x],
-            [-twist.twist.angular.y, twist.twist.angular.x, 0] 
-        ] )
-
-        # Get a differential rotation matrix; dR/dt = S(w)*R is an approximation
-        dR = S @ self.tx_servo[0:3,0:3]
-        dx = np.array( [twist.twist.linear.x,twist.twist.linear.y, twist.twist.linear.z] )
-
-        # Use SVD to preserve SO3 properties
-        U,_,VH = LA.svd(dR + self.tx_servo[0:3, 0:3]) # note VH = V.T
-        RR = U @ VH
-        self.tx_servo[0:3, 0:3] = RR
-        self.tx_servo[0:3,3] = dx + self.tx_servo[0:3,3] 
-
+    def _publish_current_pose(self):
         tfps=PoseStamped()
         tfps.header.frame_id = 'world'
         tfps.header.stamp = self.get_clock().now().to_msg()
@@ -108,6 +84,44 @@ class TF_Servo( Node ):
         tfps.pose.orientation.z = quat.elements[3]
 
         self.tx_servo_pub.publish( tfps )
+
+    def tf_reset_callback( self, tf_reset ):
+        self._set_tx_servo_from_pose(tf_reset)
+        first_reset = not self.has_initial_reset
+        self.has_initial_reset = True
+        self._publish_current_pose()
+
+        if first_reset:
+            self.get_logger().info('Received initial tf_reset; tf_servo pose publishing enabled.')
+        elif self.verbose:
+            self.get_logger().info('Applied tf_reset update.\n')
+
+    def twist_callback( self, twist ):
+
+        # Ignore twist integration until Webots seeds the initial pose.
+        if not self.has_initial_reset:
+            return
+
+        # Given twist vector, convert to skew symmetric matrix
+        #[[0,-c,b],[c,0,-a],[-b,a,0]],
+        S = np.array( [
+            [0, -twist.twist.angular.z, twist.twist.angular.y],
+            [twist.twist.angular.z, 0, -twist.twist.angular.x],
+            [-twist.twist.angular.y, twist.twist.angular.x, 0]
+        ] )
+
+        # Get a differential rotation matrix; dR/dt = S(w)*R is an approximation
+        dR = S @ self.tx_servo[0:3,0:3]
+        dx = np.array( [twist.twist.linear.x,twist.twist.linear.y, twist.twist.linear.z] )
+
+        # Use SVD to preserve SO3 properties
+        U,_,VH = LA.svd(dR + self.tx_servo[0:3, 0:3]) # note VH = V.T
+        RR = U @ VH
+        self.tx_servo[0:3, 0:3] = RR
+        self.tx_servo[0:3,3] = dx + self.tx_servo[0:3,3]
+
+        self._publish_current_pose()
+
 
 def main(args=None):
     rclpy.init(args=args)

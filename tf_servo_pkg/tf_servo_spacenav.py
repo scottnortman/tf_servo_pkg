@@ -12,6 +12,7 @@ To install the space navigator dependencies
 
 $ git clone https://github.com/mastersign/pyspacenav.git
 $ sudo apt-get install spacenavd libspnav-dev
+$ cd pyspacenav
 $ python3 setup.py build
 $ sudo python3 setup.py install
 $ python3 example.py
@@ -20,6 +21,29 @@ Topics
     /delta_twist_cmds, published TwistStamped generated from the spacemouse input
 
 
+
+Update 4/7/2026
+
+Reference: https://github.com/dorssel/usbipd-win/wiki/WSL-support
+
+
+To use with WSL2 / Windows, usbipd is required.  Follow these steps to install:
+
+0. Ensure WSL2 is installed with the latest updates via the Windows app store
+
+In Powershell with admin rights:
+1. winget install --interactive --exact dorssel.usbipd-win .
+2. Restart PS to ensure PATH is set
+3. Open PS as an admin
+4. Show devices with: usbipd list
+5. Find the correct spacemouse device (046d:c626 is my spacemouse; check device manager as needed) and bus ID
+6. Issue command: usbipd bind --force --busid 1-1
+7. Ensure a WSL is active and running, and userspace tools are installed with: sudo apt install linux-tools-virtual hwdata
+8. Attach with: uspipd attach --wsl --busid 1-1
+9. In the WSL terminal, confirm the device is visible:  lsusb
+
+The device should appear ready for use.
+    
 '''
 
 import sys
