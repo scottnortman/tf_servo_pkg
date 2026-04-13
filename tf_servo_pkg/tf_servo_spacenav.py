@@ -39,7 +39,7 @@ In Powershell with admin rights:
 5. Find the correct spacemouse device (046d:c626 is my spacemouse; check device manager as needed) and bus ID
 6. Issue command: usbipd bind --force --busid 1-1
 7. Ensure a WSL is active and running, and userspace tools are installed with: sudo apt install linux-tools-virtual hwdata
-8. Attach with: uspipd attach --wsl --busid 1-1
+8. Attach with: usbipd attach --wsl --busid 1-1
 9. In the WSL terminal, confirm the device is visible:  lsusb
 
 The device should appear ready for use.
