@@ -10,12 +10,10 @@ NOTE
 
 To install the space navigator dependencies
 
-$ git clone https://github.com/mastersign/pyspacenav.git
 $ sudo apt-get install spacenavd libspnav-dev
-$ cd pyspacenav
-$ python3 setup.py build
-$ sudo python3 setup.py install
-$ python3 example.py
+$ cd ~/restful_ws/restful-refactor
+$ source .venv/bin/activate
+$ python -m pip install --force-reinstall git+https://github.com/mastersign/pyspacenav.git
 
 Topics
     /delta_twist_cmds, published TwistStamped generated from the spacemouse input
@@ -224,7 +222,6 @@ if __name__=='__main__':
 
 
     
-
 
 
 
